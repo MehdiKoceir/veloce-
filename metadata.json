@@ -1,0 +1,6 @@
+{
+  "name": "Veloce",
+  "description": "Suivi d'activités sportives (course, vélo, marche) en direct, calcul précis des calories via la formule MET, statistiques détaillées et fil social.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
