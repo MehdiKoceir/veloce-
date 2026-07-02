@@ -1,21 +1,149 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# 🏃 Veloce — Fitness Tracking & Activity Sharing
 
-# Run and deploy your AI Studio app
+Application mobile de suivi d'activités sportives (course, vélo, marche) avec tracking GPS en temps réel, calcul automatique des calories brûlées et fil social communautaire.
 
-This contains everything you need to run your app locally.
+> Développée avec Flutter & Firebase
 
-View your app in AI Studio: https://ai.studio/apps/b1510c29-f46e-42e1-8996-876b2365b437
+---
 
-## Run Locally
+## 📱 Aperçu
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
+Veloce permet aux utilisateurs d'enregistrer leurs séances sportives via GPS, de suivre leur progression dans le temps, et de partager leurs performances avec une communauté d'amis/abonnés — le tout avec un calcul de calories précis basé sur l'intensité réelle de l'effort (pas une simple estimation forfaitaire).
 
+**Statut du projet** : 🚧 En développement
 
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
+---
+
+## ✨ Fonctionnalités
+
+### MVP (v1)
+- 🔐 Authentification (email, Google, Apple)
+- 📍 Tracking GPS en temps réel (arrière-plan inclus)
+- 🔥 Calcul dynamique des calories (formule MET ajustée à la vitesse et au dénivelé)
+- 📊 Historique et statistiques d'activités (distance, allure, dénivelé, splits)
+- 👥 Fil social (kudos, commentaires, abonnements)
+- 🌙 Mode sombre natif
+- 📴 Mode offline-first avec synchronisation différée
+
+### Premium (à venir)
+- 🏆 Segments personnalisés et classements
+- ❤️ Zones de fréquence cardiaque (capteurs BLE)
+- 📈 Analyse de performance avancée
+- 🔗 Intégration Apple Health / Google Fit
+
+---
+
+## 🛠️ Stack technique
+
+| Composant | Technologie |
+|---|---|
+| Framework mobile | Flutter (Dart, null-safety) |
+| State management | Riverpod |
+| Backend | Firebase (Auth, Firestore, Cloud Functions, Storage, FCM) |
+| Cartographie | flutter_map (OpenStreetMap) |
+| Tracking GPS | flutter_background_geolocation / geolocator + flutter_foreground_task |
+| Stockage local | Hive / Drift |
+| Paiements in-app | RevenueCat |
+| Graphiques | fl_chart |
+| Analytics & crash reporting | Firebase Analytics, Crashlytics |
+
+---
+
+## 📂 Structure du projet
+
+```
+lib/
+├── core/                   # Constantes, thèmes, utils, extensions
+├── features/
+│   ├── auth/               # Authentification & onboarding
+│   ├── tracking/           # Enregistrement GPS + moteur de calcul calories
+│   ├── history/            # Historique et détail des activités
+│   ├── feed/                # Fil social, kudos, commentaires
+│   └── profile/            # Profil utilisateur, paramètres
+├── shared/                 # Widgets réutilisables, modèles communs
+└── main.dart
+
+functions/                  # Cloud Functions (validation calories, agrégation stats)
+```
+
+---
+
+## 🚀 Installation & lancement
+
+### Prérequis
+- Flutter SDK (dernière version stable)
+- Un projet Firebase configuré (Auth, Firestore, Storage, Functions activés)
+- Xcode (build iOS) / Android Studio (build Android)
+
+### Étapes
+
+```bash
+# Cloner le projet
+git clone <repo-url>
+cd veloce
+
+# Installer les dépendances
+flutter pub get
+
+# Générer les fichiers Riverpod / freezed
+flutter pub run build_runner build --delete-conflicting-outputs
+
+# Configurer Firebase
+flutterfire configure
+
+# Lancer l'app
+flutter run
+```
+
+### Variables d'environnement / configuration Firebase
+Placer les fichiers suivants (non versionnés, voir `.gitignore`) :
+- `android/app/google-services.json`
+- `ios/Runner/GoogleService-Info.plist`
+
+---
+
+## 🔑 Permissions requises
+
+| Permission | Usage | Plateforme |
+|---|---|---|
+| Localisation (toujours) | Tracking GPS en arrière-plan pendant une activité | iOS + Android |
+| Notifications | Kudos, nouveaux abonnés, rappels d'activité | iOS + Android |
+| Photos | Ajout de photo de profil / photo d'activité | iOS + Android |
+
+⚠️ La demande de permission "localisation toujours" nécessite une justification textuelle claire côté App Store et Play Store — voir `docs/store-compliance.md`.
+
+---
+
+## 🧮 Moteur de calcul des calories
+
+Le calcul repose sur la formule MET (Metabolic Equivalent of Task) :
+
+```
+Calories = MET × poids(kg) × durée(heures)
+```
+
+- Le MET est ajusté dynamiquement selon la vitesse moyenne réelle détectée pendant l'activité
+- Un facteur d'ajustement est appliqué selon le dénivelé positif cumulé
+- Le calcul final est **revalidé côté serveur** (Cloud Function) pour éviter toute manipulation côté client
+
+Détails et table des valeurs MET : `lib/features/tracking/calorie_engine.dart`
+
+---
+
+## 🔒 Sécurité
+
+- Règles Firestore strictes : un utilisateur ne peut modifier que ses propres données
+- Validation serveur des données sensibles (calories, distance) via Cloud Functions
+- Aucune donnée de localisation brute stockée au-delà de ce qui est nécessaire à l'affichage du tracé
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] MVP : auth, tracking, calcul calories, historique, feed basique
+- [ ] Intégration RevenueCat + feature flags premium
+- [ ] Segments & classements
+- [ ] Intégration Apple Health / Google Fit
+- [ ] Version tablette / mode entraîneur
+
+---
