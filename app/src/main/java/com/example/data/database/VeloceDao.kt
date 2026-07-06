@@ -47,6 +47,12 @@ interface VeloceDao {
     @Update
     suspend fun updateFeedItem(item: SocialFeedItem)
 
+    @Query("DELETE FROM social_feed WHERE localActivityId = :activityId")
+    suspend fun deleteFeedItemByActivityId(activityId: Int)
+
+    @Query("SELECT * FROM social_feed WHERE localActivityId = :activityId LIMIT 1")
+    suspend fun getFeedItemByActivityId(activityId: Int): SocialFeedItem?
+
     @Query("DELETE FROM social_feed")
     suspend fun clearFeed()
 }

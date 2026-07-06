@@ -73,12 +73,12 @@ fun ProfileScreen(
             modifier = Modifier
                 .size(90.dp)
                 .clip(CircleShape)
-                .background(VelocePrimary),
+                .background(MaterialTheme.colorScheme.primary),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = name.take(1).uppercase(),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onPrimary,
                 fontSize = 36.sp,
                 fontWeight = FontWeight.Black
             )
@@ -94,7 +94,7 @@ fun ProfileScreen(
         )
         Text(
             text = "Rang : Athlète Veloce Élite",
-            color = VeloceSecondary,
+            color = MaterialTheme.colorScheme.secondary,
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Bold
         )
@@ -126,8 +126,8 @@ fun ProfileScreen(
                         .testTag("profile_name_input"),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = VelocePrimary,
-                        unfocusedBorderColor = VeloceSecondaryContainer
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.secondaryContainer
                     )
                 )
 
@@ -148,8 +148,8 @@ fun ProfileScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = VelocePrimary,
-                            unfocusedBorderColor = VeloceSecondaryContainer
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.secondaryContainer
                         )
                     )
 
@@ -163,8 +163,8 @@ fun ProfileScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = VelocePrimary,
-                            unfocusedBorderColor = VeloceSecondaryContainer
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.secondaryContainer
                         )
                     )
                 }
@@ -186,8 +186,8 @@ fun ProfileScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = VelocePrimary,
-                            unfocusedBorderColor = VeloceSecondaryContainer
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.secondaryContainer
                         )
                     )
 
@@ -200,8 +200,8 @@ fun ProfileScreen(
                             .testTag("profile_gender_input"),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = VelocePrimary,
-                            unfocusedBorderColor = VeloceSecondaryContainer
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.secondaryContainer
                         )
                     )
                 }
@@ -225,7 +225,7 @@ fun ProfileScreen(
                         )
                         Toast.makeText(context, "Profil sauvegardé avec succès !", Toast.LENGTH_SHORT).show()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = VelocePrimary),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("profile_save_button"),

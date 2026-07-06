@@ -81,13 +81,13 @@ fun TrackingScreen(
                 text = "COMMENCER UNE ACTIVITÉ",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Black,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 letterSpacing = 1.sp
             )
             Text(
                 text = "Sélectionnez votre sport et lancez le tracé",
                 style = MaterialTheme.typography.bodySmall,
-                color = VeloceOnSurfaceMuted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
 
@@ -107,10 +107,10 @@ fun TrackingScreen(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (isSelected) VelocePrimaryContainer else VeloceDarkSurface)
+                            .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
                             .border(
                                 1.dp,
-                                if (isSelected) VelocePrimary else VeloceSecondaryContainer,
+                                if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
                                 RoundedCornerShape(12.dp)
                             )
                             .clickable { viewModel.selectActivityType(type) }
@@ -120,13 +120,13 @@ fun TrackingScreen(
                         Icon(
                             imageVector = icon,
                             contentDescription = name,
-                            tint = if (isSelected) VelocePrimary else Color.White,
+                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(28.dp)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = name,
-                            color = if (isSelected) VelocePrimary else VeloceOnSurface,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Bold
                         )
@@ -140,8 +140,8 @@ fun TrackingScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(VeloceDarkSurface, shape = RoundedCornerShape(12.dp))
-                    .border(1.dp, VeloceSecondaryContainer, shape = RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(12.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(12.dp))
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -151,20 +151,20 @@ fun TrackingScreen(
                         text = "Mode Simulateur GPS 🕹️",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "Simule un entraînement réel avec dénivelé et vitesse variable. Idéal pour tester dans l'émulateur !",
                         style = MaterialTheme.typography.bodySmall,
-                        color = VeloceOnSurfaceMuted
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Switch(
                     checked = useSimulation,
                     onCheckedChange = { viewModel.toggleSimulation(it) },
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = VelocePrimary,
-                        checkedTrackColor = VelocePrimaryContainer
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
                     ),
                     modifier = Modifier.testTag("simulation_switch")
                 )
@@ -177,8 +177,8 @@ fun TrackingScreen(
                 modifier = Modifier
                     .size(160.dp)
                     .clip(CircleShape)
-                    .background(VelocePrimaryContainer)
-                    .border(4.dp, VelocePrimary, CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .border(4.dp, MaterialTheme.colorScheme.primary, CircleShape)
                     .clickable { viewModel.startTracking() }
                     .testTag("start_button"),
                 contentAlignment = Alignment.Center
@@ -192,13 +192,13 @@ fun TrackingScreen(
                             ActivityType.HIKING -> Icons.Default.Terrain
                         },
                         contentDescription = "Start",
-                        tint = VelocePrimary,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(36.dp)
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = "DÉMARRER",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         fontWeight = FontWeight.Black,
                         style = MaterialTheme.typography.titleMedium,
                         letterSpacing = 1.sp
@@ -216,7 +216,7 @@ fun TrackingScreen(
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
-                    .background(if (state == TrackingState.RECORDING) VelocePrimaryContainer else VeloceSecondaryContainer)
+                    .background(if (state == TrackingState.RECORDING) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer)
                     .padding(horizontal = 16.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -224,12 +224,12 @@ fun TrackingScreen(
                     modifier = Modifier
                         .size(8.dp)
                         .clip(CircleShape)
-                        .background(if (state == TrackingState.RECORDING) VelocePrimary else VeloceSecondary)
+                        .background(if (state == TrackingState.RECORDING) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = if (state == TrackingState.RECORDING) "ENREGISTREMENT" else "PAUSE",
-                    color = Color.White,
+                    color = if (state == TrackingState.RECORDING) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
@@ -246,13 +246,13 @@ fun TrackingScreen(
                     fontWeight = FontWeight.Black,
                     lineHeight = 64.sp
                 ),
-                color = VelocePrimary,
+                color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.testTag("timer_text")
             )
             Text(
                 text = "TEMPS ÉCOULÉ",
-                color = VeloceOnSurfaceMuted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp
@@ -327,7 +327,7 @@ fun TrackingScreen(
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (state == TrackingState.RECORDING) VeloceDarkSurface else VelocePrimary
+                        containerColor = if (state == TrackingState.RECORDING) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primary
                     ),
                     modifier = Modifier
                         .height(56.dp)
@@ -335,17 +335,17 @@ fun TrackingScreen(
                         .padding(horizontal = 8.dp)
                         .testTag("pause_resume_button"),
                     shape = RoundedCornerShape(12.dp),
-                    border = if (state == TrackingState.RECORDING) BorderStroke(1.dp, VelocePrimary) else null
+                    border = if (state == TrackingState.RECORDING) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
                 ) {
                     Icon(
                         imageVector = if (state == TrackingState.RECORDING) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = "Pause",
-                        tint = if (state == TrackingState.RECORDING) Color.White else VeloceOnPrimary
+                        tint = if (state == TrackingState.RECORDING) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (state == TrackingState.RECORDING) "PAUSE" else "REPRENDRE",
-                        color = if (state == TrackingState.RECORDING) Color.White else VeloceOnPrimary,
+                        color = if (state == TrackingState.RECORDING) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary,
                         fontWeight = FontWeight.Black
                     )
                 }
@@ -357,14 +357,14 @@ fun TrackingScreen(
                         notesInput = ""
                         showSaveDialog = true
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = VeloceDarkSurface),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surface),
                     modifier = Modifier
                         .height(56.dp)
                         .weight(1f)
                         .padding(horizontal = 8.dp)
                         .testTag("stop_button"),
                     shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, VeloceOnSurfaceMuted.copy(alpha = 0.5f))
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                 ) {
                     Icon(
                         imageVector = Icons.Default.Stop,
@@ -374,7 +374,7 @@ fun TrackingScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "TERMINER",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Black
                     )
                 }
@@ -391,7 +391,7 @@ fun TrackingScreen(
             title = {
                 Text(
                     text = "Enregistrer votre session 🏆",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold
                 )
             },
@@ -399,7 +399,7 @@ fun TrackingScreen(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = "Donnez un titre et une note à votre exploit pour le partager sur le feed public.",
-                        color = VeloceOnSurfaceMuted,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
@@ -412,8 +412,8 @@ fun TrackingScreen(
                             .testTag("save_title_input"),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = VelocePrimary,
-                            unfocusedBorderColor = VeloceSecondaryContainer
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.secondaryContainer
                         )
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -427,8 +427,8 @@ fun TrackingScreen(
                             .testTag("save_notes_input"),
                         maxLines = 4,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = VelocePrimary,
-                            unfocusedBorderColor = VeloceSecondaryContainer
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.secondaryContainer
                         )
                     )
                 }
@@ -439,10 +439,10 @@ fun TrackingScreen(
                         viewModel.saveTrackingSession(titleInput, notesInput)
                         showSaveDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = VelocePrimary),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     modifier = Modifier.testTag("save_confirm_button")
                 ) {
-                    Text("ENREGISTRER")
+                    Text("ENREGISTRER", color = MaterialTheme.colorScheme.onPrimary)
                 }
             },
             dismissButton = {
@@ -457,7 +457,7 @@ fun TrackingScreen(
                     Text("SUPPRIMER")
                 }
             },
-            containerColor = VeloceDarkSurface,
+            containerColor = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(16.dp)
         )
     }
@@ -470,12 +470,14 @@ fun MetricCard(
     unit: String,
     icon: ImageVector,
     modifier: Modifier = Modifier,
-    valueColor: Color = Color.White
+    valueColor: Color? = null
 ) {
+    val actualValueColor = valueColor ?: MaterialTheme.colorScheme.onSurface
+
     Column(
         modifier = modifier
-            .background(VeloceDarkSurface, shape = RoundedCornerShape(12.dp))
-            .border(1.dp, VeloceSecondaryContainer, shape = RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(12.dp))
+            .border(1.dp, MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(12.dp))
             .padding(14.dp),
         horizontalAlignment = Alignment.Start
     ) {
@@ -486,12 +488,12 @@ fun MetricCard(
             Icon(
                 imageVector = icon,
                 contentDescription = title,
-                tint = VelocePrimary,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(16.dp)
             )
             Text(
                 text = title,
-                color = VeloceOnSurfaceMuted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Bold
             )
@@ -503,14 +505,14 @@ fun MetricCard(
         ) {
             Text(
                 text = value,
-                color = valueColor,
+                color = actualValueColor,
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Black,
                 lineHeight = 32.sp
             )
             Text(
                 text = unit,
-                color = VeloceOnSurfaceMuted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 3.dp)

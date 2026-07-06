@@ -29,8 +29,24 @@ class VeloceRepository(private val dao: VeloceDao) {
         return dao.insertActivity(activity)
     }
 
+    suspend fun updateActivity(activity: SportActivity) {
+        dao.insertActivity(activity)
+        // If there's a synced social feed item, update its title/info to match
+        val feedItem = dao.getFeedItemByActivityId(activity.id)
+        if (feedItem != null) {
+            dao.updateFeedItem(feedItem.copy(
+                title = activity.title.ifBlank { "Activité" },
+                distanceMeters = activity.distanceMeters,
+                durationMs = activity.durationMs,
+                calories = activity.calories,
+                elevationGain = activity.elevationGain
+            ))
+        }
+    }
+
     suspend fun deleteActivity(activityId: Int) {
         dao.deleteActivityById(activityId)
+        dao.deleteFeedItemByActivityId(activityId)
     }
 
     suspend fun getActivityById(activityId: Int): SportActivity? {

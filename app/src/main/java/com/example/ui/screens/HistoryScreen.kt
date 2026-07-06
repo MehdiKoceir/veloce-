@@ -76,13 +76,13 @@ fun HistoryScreen(
                 text = "HISTORIQUE & STATISTIQUES",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Black,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 letterSpacing = 1.sp
             )
             Text(
                 text = "Suivez votre progression au fil du temps",
                 style = MaterialTheme.typography.bodySmall,
-                color = VeloceOnSurfaceMuted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
         }
@@ -92,13 +92,13 @@ fun HistoryScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(VeloceDarkSurface, shape = RoundedCornerShape(16.dp))
-                    .border(1.dp, VeloceSecondaryContainer, shape = RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(16.dp))
                     .padding(16.dp)
             ) {
                 Text(
                     text = "Résumé Global",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium
                 )
@@ -144,7 +144,7 @@ fun HistoryScreen(
                 text = "Séances Enregistrées",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(top = 8.dp)
             )
         }
@@ -161,18 +161,18 @@ fun HistoryScreen(
                     Icon(
                         imageVector = Icons.Default.FitnessCenter,
                         contentDescription = "Aucun",
-                        tint = VeloceOnSurfaceMuted,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(48.dp)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = "Aucune séance pour le moment.",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onBackground,
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
                         text = "Enregistrez votre première activité dans l'onglet Tracking !",
-                        color = VeloceOnSurfaceMuted,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(horizontal = 24.dp),
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -184,6 +184,7 @@ fun HistoryScreen(
                 ActivityHistoryCard(
                     activity = activity,
                     isMetric = isMetric,
+                    onUpdate = { updated -> viewModel.updateActivity(updated) },
                     onDelete = { viewModel.deleteActivity(activity.id) }
                 )
             }
@@ -200,8 +201,11 @@ fun HistoryScreen(
 fun ActivityHistoryCard(
     activity: SportActivity,
     isMetric: Boolean,
+    onUpdate: (SportActivity) -> Unit,
     onDelete: () -> Unit
 ) {
+    var showEditDialog by remember { mutableStateOf(false) }
+
     val dateString = remember(activity.startTime) {
         val sdf = SimpleDateFormat("dd MMMM yyyy 'à' HH:mm", Locale.FRENCH)
         sdf.format(Date(activity.startTime))
@@ -231,28 +235,31 @@ fun ActivityHistoryCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(VeloceDarkSurface, shape = RoundedCornerShape(12.dp))
-            .border(1.dp, VeloceSecondaryContainer, shape = RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(12.dp))
+            .border(1.dp, MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(12.dp))
             .padding(14.dp)
             .testTag("history_item_${activity.id}")
     ) {
-        // Card Top Row (Type icon, title, delete)
+        // Card Top Row (Type icon, title, actions)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .background(VelocePrimaryContainer, shape = RoundedCornerShape(8.dp)),
+                        .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(8.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = VelocePrimary,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -260,26 +267,38 @@ fun ActivityHistoryCard(
                 Column {
                     Text(
                         text = activity.title,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
                         text = dateString,
-                        color = VeloceOnSurfaceMuted,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
             }
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.testTag("delete_activity_${activity.id}")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = Color.Red.copy(alpha = 0.8f)
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = { showEditDialog = true },
+                    modifier = Modifier.testTag("edit_activity_${activity.id}")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit",
+                        tint = MaterialTheme.colorScheme.secondary
+                    )
+                }
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.testTag("delete_activity_${activity.id}")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = Color.Red.copy(alpha = 0.8f)
+                    )
+                }
             }
         }
 
@@ -291,37 +310,37 @@ fun ActivityHistoryCard(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                Text(text = "Distance", color = VeloceOnSurfaceMuted, style = MaterialTheme.typography.bodySmall)
+                Text(text = "Distance", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 Text(
                     text = String.format("%.2f %s", distanceDisplay, distanceUnit),
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Black,
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
             Column {
-                Text(text = "Durée", color = VeloceOnSurfaceMuted, style = MaterialTheme.typography.bodySmall)
+                Text(text = "Durée", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 Text(
                     text = formatDuration(activity.durationMs / 1000),
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Black,
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
             Column {
-                Text(text = "Effort", color = VeloceOnSurfaceMuted, style = MaterialTheme.typography.bodySmall)
+                Text(text = "Effort", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 Text(
                     text = "${activity.calories.roundToInt()} kcal",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Black,
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
             Column {
-                Text(text = "Dénivelé", color = VeloceOnSurfaceMuted, style = MaterialTheme.typography.bodySmall)
+                Text(text = "Dénivelé", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 Text(
                     text = "${elevationDisplay.roundToInt()} $elevationUnit",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Black,
                     style = MaterialTheme.typography.bodyLarge
                 )
@@ -332,10 +351,10 @@ fun ActivityHistoryCard(
             Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = activity.notes,
-                color = VeloceOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier
-                    .background(VeloceDarkBackground, shape = RoundedCornerShape(6.dp))
+                    .background(MaterialTheme.colorScheme.background, shape = RoundedCornerShape(6.dp))
                     .fillMaxWidth()
                     .padding(8.dp)
             )
@@ -347,15 +366,15 @@ fun ActivityHistoryCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(VelocePrimaryContainer.copy(alpha = 0.15f), shape = RoundedCornerShape(6.dp))
-                .border(1.dp, VelocePrimaryContainer, shape = RoundedCornerShape(6.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f), shape = RoundedCornerShape(6.dp))
+                .border(1.dp, MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(6.dp))
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = Icons.Default.VerifiedUser,
                 contentDescription = "Verified",
-                tint = VelocePrimary,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(16.dp)
             )
             Spacer(modifier = Modifier.width(6.dp))
@@ -365,11 +384,79 @@ fun ActivityHistoryCard(
                 } else {
                     "Recalculé & validé localement."
                 },
-                color = VelocePrimary,
+                color = MaterialTheme.colorScheme.primary,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold
             )
         }
+    }
+
+    // Modern Material 3 Dynamic Edit Dialog
+    if (showEditDialog) {
+        var editedTitle by remember { mutableStateOf(activity.title) }
+        var editedNotes by remember { mutableStateOf(activity.notes) }
+
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            title = {
+                Text(
+                    text = "Modifier l'activité",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedTextField(
+                        value = editedTitle,
+                        onValueChange = { editedTitle = it },
+                        label = { Text("Titre de l'activité") },
+                        modifier = Modifier.fillMaxWidth().testTag("edit_title_input"),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+                    OutlinedTextField(
+                        value = editedNotes,
+                        onValueChange = { editedNotes = it },
+                        label = { Text("Notes / Description") },
+                        modifier = Modifier.fillMaxWidth().testTag("edit_notes_input"),
+                        minLines = 3,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onUpdate(activity.copy(title = editedTitle, notes = editedNotes))
+                        showEditDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.testTag("edit_activity_submit")
+                ) {
+                    Text("Enregistrer", color = MaterialTheme.colorScheme.onPrimary)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showEditDialog = false },
+                    modifier = Modifier.testTag("edit_activity_cancel")
+                ) {
+                    Text("Annuler", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 }
 
@@ -387,19 +474,19 @@ fun MiniStatItem(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = VeloceSecondary,
+            tint = MaterialTheme.colorScheme.secondary,
             modifier = Modifier.size(18.dp)
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Black,
             style = MaterialTheme.typography.bodyLarge
         )
         Text(
             text = title,
-            color = VeloceOnSurfaceMuted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall,
             fontSize = 10.sp
         )

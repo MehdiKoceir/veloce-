@@ -388,6 +388,12 @@ class VeloceViewModel(private val repository: VeloceRepository, private val cont
     val activities: StateFlow<List<SportActivity>> = repository.activities
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    fun updateActivity(activity: SportActivity) {
+        viewModelScope.launch {
+            repository.updateActivity(activity)
+        }
+    }
+
     fun deleteActivity(id: Int) {
         viewModelScope.launch {
             repository.deleteActivity(id)
