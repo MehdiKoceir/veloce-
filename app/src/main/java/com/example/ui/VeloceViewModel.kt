@@ -2,6 +2,10 @@ package com.example.ui
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.location.Location
 import android.os.Looper
 import androidx.lifecycle.ViewModel
@@ -11,16 +15,27 @@ import com.example.data.CalorieCalculator
 import com.example.data.CalorieCalculator.ActivityType
 import com.example.data.CalorieCalculator.TrackPoint
 import com.example.data.VeloceRepository
+import com.example.data.VeloceFirebaseManager
+import com.example.data.VeloceUser
 import com.example.data.database.SocialFeedItem
 import com.example.data.database.SportActivity
 import com.example.data.database.UserProfile
 import com.google.android.gms.location.*
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
+import android.widget.Toast
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.sqrt
+import kotlin.math.abs
 
 class VeloceViewModel(private val repository: VeloceRepository, private val context: Context) : ViewModel() {
 
@@ -42,6 +57,60 @@ class VeloceViewModel(private val repository: VeloceRepository, private val cont
 
     fun toggleTheme() {
         _isDarkTheme.value = !_isDarkTheme.value
+    }
+
+    // --- Welcome Landing Screen State ---
+    private val sharedPrefs = context.getSharedPreferences("veloce_prefs", Context.MODE_PRIVATE)
+    private val _hasSeenWelcome = MutableStateFlow(sharedPrefs.getBoolean("has_seen_welcome", false))
+    val hasSeenWelcome: StateFlow<Boolean> = _hasSeenWelcome.asStateFlow()
+
+    fun setSeenWelcome(seen: Boolean) {
+        _hasSeenWelcome.value = seen
+        sharedPrefs.edit().putBoolean("has_seen_welcome", seen).apply()
+    }
+
+    // --- Firebase Authentication States & Flows ---
+    val firebaseUser: StateFlow<VeloceUser?> = VeloceFirebaseManager.currentUser
+    val isRealFirebaseActive: Boolean = VeloceFirebaseManager.isRealFirebaseActive
+
+    fun signUp(email: String, password: String, displayName: String, onResult: (Result<VeloceUser>) -> Unit) {
+        viewModelScope.launch {
+            VeloceFirebaseManager.signUp(context, email, password, displayName) { result ->
+                if (result.isSuccess) {
+                    val user = result.getOrNull()
+                    if (user != null) {
+                        viewModelScope.launch {
+                            // Update local room profile with authenticated athlete's name
+                            val current = repository.getProfileOneShot()
+                            repository.updateProfile(current.copy(name = user.displayName))
+                        }
+                    }
+                }
+                onResult(result)
+            }
+        }
+    }
+
+    fun signIn(email: String, password: String, onResult: (Result<VeloceUser>) -> Unit) {
+        viewModelScope.launch {
+            VeloceFirebaseManager.signIn(context, email, password) { result ->
+                if (result.isSuccess) {
+                    val user = result.getOrNull()
+                    if (user != null) {
+                        viewModelScope.launch {
+                            // Update local room profile with authenticated athlete's name
+                            val current = repository.getProfileOneShot()
+                            repository.updateProfile(current.copy(name = user.displayName))
+                        }
+                    }
+                }
+                onResult(result)
+            }
+        }
+    }
+
+    fun signOut() {
+        VeloceFirebaseManager.signOut(context)
     }
 
     // --- Onboarding / Profile State ---
@@ -74,8 +143,23 @@ class VeloceViewModel(private val repository: VeloceRepository, private val cont
     private val _selectedActivityType = MutableStateFlow(ActivityType.RUNNING)
     val selectedActivityType: StateFlow<ActivityType> = _selectedActivityType.asStateFlow()
 
-    private val _useSimulation = MutableStateFlow(true) // Default to true for browser emulator ease-of-use
+    private val _useSimulation = MutableStateFlow(false) // Default to false so real tracking is used by default
     val useSimulation: StateFlow<Boolean> = _useSimulation.asStateFlow()
+
+    private val _isMoving = MutableStateFlow(false)
+    val isMoving: StateFlow<Boolean> = _isMoving.asStateFlow()
+
+    private val _isOnline = MutableStateFlow(true)
+    val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
+
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
+
+    private var sensorManager: SensorManager? = null
+    private var accelerometer: Sensor? = null
+    private var stepDetector: Sensor? = null
+    private var sensorEventListener: SensorEventListener? = null
+    private var lastMovementTime = System.currentTimeMillis()
 
     // Active workout metrics
     private val _durationSeconds = MutableStateFlow(0L)
@@ -156,8 +240,79 @@ class VeloceViewModel(private val repository: VeloceRepository, private val cont
         startTrackingPipeline()
     }
 
+    private fun startSensorUpdates() {
+        if (sensorManager == null) return
+        
+        // If simulation mode is active, we bypass sensor checks (always simulate movement)
+        if (_useSimulation.value) {
+            _isMoving.value = true
+            return
+        }
+
+        _isMoving.value = false
+        lastMovementTime = System.currentTimeMillis()
+
+        sensorEventListener = object : SensorEventListener {
+            private val SMOOTHING_FACTOR = 0.9f
+            private var gravity = FloatArray(3)
+
+            override fun onSensorChanged(event: SensorEvent) {
+                if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+                    val x = event.values[0]
+                    val y = event.values[1]
+                    val z = event.values[2]
+
+                    // Isolate linear acceleration (remove gravity using high-pass filter)
+                    gravity[0] = SMOOTHING_FACTOR * gravity[0] + (1 - SMOOTHING_FACTOR) * x
+                    gravity[1] = SMOOTHING_FACTOR * gravity[1] + (1 - SMOOTHING_FACTOR) * y
+                    gravity[2] = SMOOTHING_FACTOR * gravity[2] + (1 - SMOOTHING_FACTOR) * z
+
+                    val linearX = x - gravity[0]
+                    val linearY = y - gravity[1]
+                    val linearZ = z - gravity[2]
+
+                    val magnitude = sqrt(linearX * linearX + linearY * linearY + linearZ * linearZ)
+                    
+                    // Threshold of 0.6f corresponds to gentle physical motion
+                    if (magnitude > 0.6f) {
+                        lastMovementTime = System.currentTimeMillis()
+                        _isMoving.value = true
+                    } else {
+                        // If no significant movement for 4 seconds, mark as stationary
+                        if (System.currentTimeMillis() - lastMovementTime > 4000) {
+                            _isMoving.value = false
+                        }
+                    }
+                } else if (event.sensor.type == Sensor.TYPE_STEP_DETECTOR) {
+                    lastMovementTime = System.currentTimeMillis()
+                    _isMoving.value = true
+                }
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+
+        accelerometer?.let {
+            sensorManager?.registerListener(sensorEventListener, it, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+        stepDetector?.let {
+            sensorManager?.registerListener(sensorEventListener, it, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+    }
+
+    private fun stopSensorUpdates() {
+        sensorEventListener?.let {
+            sensorManager?.unregisterListener(it)
+        }
+        sensorEventListener = null
+        _isMoving.value = false
+    }
+
     private fun startTrackingPipeline() {
         stopTrackingPipelineJobs()
+
+        // Start motion sensors
+        startSensorUpdates()
 
         // 1. Ticker and/or simulation job
         trackingJob = viewModelScope.launch {
@@ -181,6 +336,7 @@ class VeloceViewModel(private val repository: VeloceRepository, private val cont
         trackingJob?.cancel()
         trackingJob = null
         stopRealGpsUpdates()
+        stopSensorUpdates()
     }
 
     private fun simulateStep() {
@@ -279,6 +435,11 @@ class VeloceViewModel(private val repository: VeloceRepository, private val cont
     }
 
     private fun addRealGpsPoint(location: Location) {
+        // GPS noise/drift filter: ignore low accuracy points (extremely common indoors)
+        if (location.hasAccuracy() && location.accuracy > 30f) {
+            return
+        }
+
         val newPoint = TrackPoint(
             latitude = location.latitude,
             longitude = location.longitude,
@@ -289,31 +450,42 @@ class VeloceViewModel(private val repository: VeloceRepository, private val cont
         val currentPoints = _trackedPoints.value.toMutableList()
         val prevPoint = currentPoints.lastOrNull()
 
-        currentPoints.add(newPoint)
-        _trackedPoints.value = currentPoints
-
         if (prevPoint != null) {
             val dist = CalorieCalculator.calculateDistance(
                 prevPoint.latitude, prevPoint.longitude,
                 newPoint.latitude, newPoint.longitude
             )
-            val elevDiff = newPoint.altitude - prevPoint.altitude
 
-            _distanceMeters.value += dist
-            if (elevDiff > 0) {
-                _elevationGainMeters.value += elevDiff
-            }
+            // Prevent GPS drift: only accumulate if we detect physical motion
+            // We consider the user moving if our motion sensor says so, or if reported GPS speed is above 0.3 m/s
+            val isGpsMoving = dist >= 1.5 && (_isMoving.value || (location.hasSpeed() && location.speed > 0.3f))
 
-            viewModelScope.launch {
-                val weight = repository.getProfileOneShot().weightKg
-                val totalCal = CalorieCalculator.calculateCalories(currentPoints, weight, _selectedActivityType.value)
-                _caloriesBurned.value = totalCal
-                
-                val durSec = _durationSeconds.value
-                if (durSec > 0) {
-                    _avgSpeedKmH.value = (_distanceMeters.value / 1000.0) / (durSec.toDouble() / 3600.0)
+            if (isGpsMoving) {
+                currentPoints.add(newPoint)
+                _trackedPoints.value = currentPoints
+
+                val elevDiff = newPoint.altitude - prevPoint.altitude
+
+                _distanceMeters.value += dist
+                if (elevDiff > 0) {
+                    _elevationGainMeters.value += elevDiff
+                }
+
+                viewModelScope.launch {
+                    val weight = repository.getProfileOneShot().weightKg
+                    val totalCal = CalorieCalculator.calculateCalories(currentPoints, weight, _selectedActivityType.value)
+                    _caloriesBurned.value = totalCal
+                    
+                    val durSec = _durationSeconds.value
+                    if (durSec > 0) {
+                        _avgSpeedKmH.value = (_distanceMeters.value / 1000.0) / (durSec.toDouble() / 3600.0)
+                    }
                 }
             }
+        } else {
+            // First point is always added to start the route
+            currentPoints.add(newPoint)
+            _trackedPoints.value = currentPoints
         }
     }
 
@@ -331,7 +503,9 @@ class VeloceViewModel(private val repository: VeloceRepository, private val cont
         val type = _selectedActivityType.value
 
         viewModelScope.launch {
+            val user = VeloceFirebaseManager.currentUser.value
             val activity = SportActivity(
+                userId = user?.uid ?: "",
                 activityType = type.name,
                 startTime = System.currentTimeMillis() - duration,
                 durationMs = duration,
@@ -344,11 +518,26 @@ class VeloceViewModel(private val repository: VeloceRepository, private val cont
                 isSynced = false
             )
             
-            // 1. Insert to local database
+            // 1. Insert to local database (always save locally first)
             val id = repository.insertActivity(activity)
+            val finalActivity = activity.copy(id = id.toInt())
 
-            // 2. Automatically trigger virtual Cloud-Function verification & publish to Social Feed
-            repository.syncActivityToCloud(id.toInt())
+            val online = isNetworkAvailable()
+            if (online) {
+                // 2. Automatically trigger virtual Cloud-Function verification & publish to Social Feed
+                repository.syncActivityToCloud(id.toInt())
+
+                // 3. Securely store in Firebase Firestore
+                VeloceFirebaseManager.saveActivityToFirestore(context, finalActivity)
+                
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Séance enregistrée et synchronisée avec succès !", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Hors-ligne : Séance enregistrée localement. Elle se synchronisera dès le retour d'Internet !", Toast.LENGTH_LONG).show()
+                }
+            }
 
             // Reset states
             _trackingState.value = TrackingState.IDLE
@@ -391,12 +580,14 @@ class VeloceViewModel(private val repository: VeloceRepository, private val cont
     fun updateActivity(activity: SportActivity) {
         viewModelScope.launch {
             repository.updateActivity(activity)
+            VeloceFirebaseManager.saveActivityToFirestore(context, activity)
         }
     }
 
     fun deleteActivity(id: Int) {
         viewModelScope.launch {
             repository.deleteActivity(id)
+            VeloceFirebaseManager.deleteActivityFromFirestore(context, id)
         }
     }
 
@@ -404,9 +595,26 @@ class VeloceViewModel(private val repository: VeloceRepository, private val cont
     val feedItems: StateFlow<List<SocialFeedItem>> = repository.feedItems
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    fun publishActivityToFeed(activityId: Int, customTitle: String? = null) {
+        viewModelScope.launch {
+            val success = repository.publishActivityToFeed(activityId, customTitle)
+            if (success) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Activité publiée sur le fil d'actualités !", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     fun toggleKudos(itemId: Int) {
         viewModelScope.launch {
             repository.toggleKudos(itemId)
+        }
+    }
+
+    fun deleteFeedItem(itemId: Int) {
+        viewModelScope.launch {
+            repository.deleteFeedItem(itemId)
         }
     }
 
@@ -441,6 +649,58 @@ class VeloceViewModel(private val repository: VeloceRepository, private val cont
         }
     }
 
+    fun isNetworkAvailable(): Boolean {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        if (connectivityManager != null) {
+            val capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+            if (capabilities != null) {
+                if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+                    return true
+                } else if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                    return true
+                } else if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    fun syncOfflineActivities() {
+        if (!isNetworkAvailable() || _isSyncing.value) return
+        
+        viewModelScope.launch {
+            _isSyncing.value = true
+            try {
+                val allActivities = repository.activities.firstOrNull() ?: emptyList()
+                val unsynced = allActivities.filter { !it.isSynced }
+                if (unsynced.isNotEmpty()) {
+                    var successCount = 0
+                    for (activity in unsynced) {
+                        // 1. Trigger simulated cloud verification
+                        val verificationResult = repository.syncActivityToCloud(activity.id)
+                        
+                        // 2. Fetch updated activity from Room to save to Firestore
+                        val updatedActivity = repository.getActivityById(activity.id)
+                        if (updatedActivity != null && verificationResult.isValid) {
+                            VeloceFirebaseManager.saveActivityToFirestore(context, updatedActivity)
+                            successCount++
+                        }
+                    }
+                    if (successCount > 0) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "$successCount séances synchronisées avec succès !", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _isSyncing.value = false
+            }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         stopTrackingPipelineJobs()
@@ -448,8 +708,36 @@ class VeloceViewModel(private val repository: VeloceRepository, private val cont
 
     // --- Initialization & Setup ---
     init {
+        VeloceFirebaseManager.initialize(context)
+        sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+        accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        stepDetector = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
         viewModelScope.launch {
             repository.initializeAppDataIfEmpty()
+        }
+
+        // Setup real-time network connectivity monitoring
+        _isOnline.value = isNetworkAvailable()
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        if (connectivityManager != null) {
+            try {
+                val request = NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .build()
+                connectivityManager.registerNetworkCallback(request, object : ConnectivityManager.NetworkCallback() {
+                    override fun onAvailable(network: Network) {
+                        _isOnline.value = true
+                        // Auto-sync offline workouts when internet returns
+                        syncOfflineActivities()
+                    }
+
+                    override fun onLost(network: Network) {
+                        _isOnline.value = false
+                    }
+                })
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 }

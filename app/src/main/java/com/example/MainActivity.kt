@@ -52,6 +52,8 @@ class MainActivity : ComponentActivity() {
             val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
             val currentTab by viewModel.currentTab.collectAsStateWithLifecycle()
             val isDarkTheme by viewModel.isDarkTheme.collectAsStateWithLifecycle()
+            val hasSeenWelcome by viewModel.hasSeenWelcome.collectAsStateWithLifecycle()
+            val currentUser by viewModel.firebaseUser.collectAsStateWithLifecycle()
 
             MyApplicationTheme(darkTheme = isDarkTheme) {
                 Crossfade(
@@ -65,22 +67,32 @@ class MainActivity : ComponentActivity() {
                             color = MaterialTheme.colorScheme.background
                         ) {
                             if (userProfile == null) {
-                        // Loading State while fetching Database
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = androidx.compose.ui.Alignment.Center
-                        ) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                        }
-                    } else if (userProfile?.name == "Athlète Veloce") {
-                        // Onboarding Flow on fresh launch to customize MET variables
-                        OnboardingScreen(
-                            currentProfile = userProfile,
-                            onComplete = { name, weight, height, age, gender, activityLevel, metric ->
-                                viewModel.updateProfile(name, weight, height, age, gender, activityLevel, metric)
-                            }
-                        )
-                    } else {
+                                // Loading State while fetching Database
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = androidx.compose.ui.Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                                }
+                            } else if (!hasSeenWelcome) {
+                                // Welcome / Landing Home Page
+                                WelcomeScreen(
+                                    isDarkTheme = targetDark,
+                                    onToggleTheme = { viewModel.toggleTheme() },
+                                    onEnterApp = { viewModel.setSeenWelcome(true) }
+                                )
+                            } else if (currentUser == null) {
+                                // Firebase Auth Screen for signup/login
+                                AuthScreen(viewModel = viewModel)
+                            } else if (userProfile?.name == "Athlète Veloce") {
+                                // Onboarding Flow on fresh launch to customize MET variables
+                                OnboardingScreen(
+                                    currentProfile = userProfile,
+                                    onComplete = { name, weight, height, age, gender, activityLevel, metric ->
+                                        viewModel.updateProfile(name, weight, height, age, gender, activityLevel, metric)
+                                    }
+                                )
+                            } else {
                         // Core Application Navigation HUD
                         Scaffold(
                             modifier = Modifier

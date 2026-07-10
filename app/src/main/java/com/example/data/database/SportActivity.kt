@@ -10,6 +10,7 @@ import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 @Entity(tableName = "sport_activities")
 data class SportActivity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val userId: String = "", // Links to Firebase Auth user UID or local user
     val activityType: String, // WALKING, RUNNING, CYCLING, HIKING
     val startTime: Long, // Epoch timestamp millis
     val durationMs: Long,

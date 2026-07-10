@@ -23,7 +23,7 @@ import com.example.data.CalorieCalculator
 import com.example.data.database.SportActivity
 import com.example.data.database.UserProfile
 import com.example.ui.VeloceViewModel
-import com.example.ui.components.AthleticBarChart
+import com.example.ui.components.RechartsLineGraph
 import com.example.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -36,7 +36,10 @@ fun HistoryScreen(
     modifier: Modifier = Modifier
 ) {
     val activities by viewModel.activities.collectAsState()
+    val isOnline by viewModel.isOnline.collectAsState()
+    val isSyncing by viewModel.isSyncing.collectAsState()
     val isMetric = profile.metricUnits
+    val unsyncedCount = remember(activities) { activities.count { !it.isSynced } }
 
     // Calculate aggregated metrics
     val totalCount = activities.size
@@ -47,20 +50,6 @@ fun HistoryScreen(
     val totalDistanceDisplay = if (isMetric) totalDistanceM / 1000.0 else (totalDistanceM / 1000.0) * 0.621371
     val distanceUnit = if (isMetric) "km" else "mi"
     val durationHours = totalDurationMs.toDouble() / 3600000.0
-
-    // Prepare chart data for last 7 days (or general activity progression)
-    val chartData = remember(activities) {
-        if (activities.isEmpty()) {
-            listOf(0f, 0f, 0f, 0f, 0f, 0f, 0f)
-        } else {
-            // Take up to last 7 activities as bars, pad with 0s if less
-            val last7 = activities.take(7).reversed().map { (it.distanceMeters / 1000f).toFloat() }
-            val padding = 7 - last7.size
-            List(padding) { 0f } + last7
-        }
-    }
-    
-    val chartLabels = listOf("Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim")
 
     LazyColumn(
         modifier = modifier
@@ -85,6 +74,119 @@ fun HistoryScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
+        }
+
+        // --- Offline / Sync Status Banner ---
+        if (!isOnline || unsyncedCount > 0) {
+            item {
+                if (!isOnline) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudOff,
+                                contentDescription = "Hors-ligne",
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Mode Hors-ligne Actif",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    text = "Vous pouvez continuer à enregistrer vos séances d'entraînement en toute sécurité. Les données sont stockées localement et seront synchronisées automatiquement dès que vous retrouverez une connexion.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Sync,
+                                    contentDescription = "Synchronisation",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = "$unsyncedCount séance(s) en attente",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Text(
+                                        text = "Sauvegardées localement, prêtes à être synchronisées avec le cloud.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            if (isSyncing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.5.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            } else {
+                                Button(
+                                    onClick = { viewModel.syncOfflineActivities() },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    modifier = Modifier.testTag("sync_now_button")
+                                ) {
+                                    Text(
+                                        text = "Sync",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // --- Aggregated Stats Grid Card ---
@@ -131,10 +233,8 @@ fun HistoryScreen(
 
         // --- Performance Progression Chart ---
         item {
-            AthleticBarChart(
-                data = chartData,
-                labels = chartLabels,
-                metricLabel = "Volume d'entraînement (${distanceUnit} par séance)"
+            RechartsLineGraph(
+                activities = activities
             )
         }
 

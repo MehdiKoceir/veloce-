@@ -1,5 +1,8 @@
 package com.example.ui.screens
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -28,6 +32,7 @@ import com.example.data.database.UserProfile
 import com.example.ui.VeloceViewModel
 import com.example.ui.VeloceViewModel.TrackingState
 import com.example.ui.components.RouteTrackVisualizer
+import com.example.ui.components.RealTimeActivityTimerComponent
 import com.example.ui.theme.*
 import kotlin.math.roundToInt
 
@@ -38,6 +43,7 @@ fun TrackingScreen(
     profile: UserProfile,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val state by viewModel.trackingState.collectAsState()
     val activityType by viewModel.selectedActivityType.collectAsState()
     val useSimulation by viewModel.useSimulation.collectAsState()
@@ -54,6 +60,18 @@ fun TrackingScreen(
     var notesInput by remember { mutableStateOf("") }
 
     val scrollState = rememberScrollState()
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineGranted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val coarseGranted = permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (fineGranted || coarseGranted) {
+            viewModel.startTracking()
+        } else {
+            Toast.makeText(context, "L'autorisation de localisation est requise pour suivre votre activité réelle.", Toast.LENGTH_LONG).show()
+        }
+    }
 
     // Metric conversions
     val isMetric = profile.metricUnits
@@ -179,7 +197,31 @@ fun TrackingScreen(
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primaryContainer)
                     .border(4.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                    .clickable { viewModel.startTracking() }
+                    .clickable {
+                        if (useSimulation) {
+                            viewModel.startTracking()
+                        } else {
+                            val fineCheck = androidx.core.content.ContextCompat.checkSelfPermission(
+                                context,
+                                android.Manifest.permission.ACCESS_FINE_LOCATION
+                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            val coarseCheck = androidx.core.content.ContextCompat.checkSelfPermission(
+                                context,
+                                android.Manifest.permission.ACCESS_COARSE_LOCATION
+                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+                            if (fineCheck || coarseCheck) {
+                                viewModel.startTracking()
+                            } else {
+                                permissionLauncher.launch(
+                                    arrayOf(
+                                        android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                        android.Manifest.permission.ACCESS_COARSE_LOCATION
+                                    )
+                                )
+                            }
+                        }
+                    }
                     .testTag("start_button"),
                 contentAlignment = Alignment.Center
             ) {
@@ -212,11 +254,23 @@ fun TrackingScreen(
             // --- RECORDING SCREEN (Huge Contrast HUD) ---
             Spacer(modifier = Modifier.height(8.dp))
 
+            val isMoving by viewModel.isMoving.collectAsState()
+
             // Top Status Pill
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
-                    .background(if (state == TrackingState.RECORDING) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer)
+                    .background(
+                        if (state == TrackingState.PAUSED) {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        } else if (useSimulation) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else if (isMoving) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.errorContainer
+                        }
+                    )
                     .padding(horizontal = 16.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -224,66 +278,93 @@ fun TrackingScreen(
                     modifier = Modifier
                         .size(8.dp)
                         .clip(CircleShape)
-                        .background(if (state == TrackingState.RECORDING) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary)
+                        .background(
+                            if (state == TrackingState.PAUSED) {
+                                MaterialTheme.colorScheme.secondary
+                            } else if (useSimulation) {
+                                MaterialTheme.colorScheme.primary
+                            } else if (isMoving) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            }
+                        )
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (state == TrackingState.RECORDING) "ENREGISTREMENT" else "PAUSE",
-                    color = if (state == TrackingState.RECORDING) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+                    text = if (state == TrackingState.PAUSED) {
+                        "PAUSE"
+                    } else if (useSimulation) {
+                        "SIMULATION GPS ACTIVE"
+                    } else if (isMoving) {
+                        "EN MOUVEMENT"
+                    } else {
+                        "IMMOBILE (EN ATTENTE)"
+                    },
+                    color = if (state == TrackingState.PAUSED) {
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    } else if (useSimulation) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else if (isMoving) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onErrorContainer
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Giant Duration Metric
-            Text(
-                text = formatDuration(durationSec),
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontSize = 56.sp,
-                    fontWeight = FontWeight.Black,
-                    lineHeight = 64.sp
-                ),
-                color = MaterialTheme.colorScheme.primary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.testTag("timer_text")
-            )
-            Text(
-                text = "TEMPS ÉCOULÉ",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Sub metrics grid
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                MetricCard(
-                    title = "DISTANCE",
-                    value = String.format("%.2f", distanceDisplay),
-                    unit = distanceUnit,
-                    icon = Icons.Default.LocationOn,
-                    modifier = Modifier.weight(1f)
-                )
-                MetricCard(
-                    title = "CALORIES",
-                    value = calories.roundToInt().toString(),
-                    unit = "kcal",
-                    icon = Icons.Default.LocalFireDepartment,
-                    modifier = Modifier.weight(1f),
-                    valueColor = VeloceAccentCoral
-                )
+            // Stationary Warning Banner
+            if (state == TrackingState.RECORDING && !useSimulation && !isMoving) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = "Stationnaire",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Aucun mouvement physique détecté. Le suivi et les calculs s'activeront dès que vous commencerez à bouger.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
+            // High-fidelity dynamic Real-time activity timer and MET Calorie/Distance tracker HUD
+            RealTimeActivityTimerComponent(
+                durationSec = durationSec,
+                distanceMeters = distanceM,
+                calories = calories,
+                speedKmH = avgSpeed,
+                activityType = activityType,
+                weightKg = profile.weightKg,
+                isMetric = isMetric,
+                isPaused = (state == TrackingState.PAUSED)
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Compact secondary metrics row for Average Pace and Elevation Gain
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)

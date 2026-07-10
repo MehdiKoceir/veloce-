@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [UserProfile::class, SportActivity::class, SocialFeedItem::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class VeloceDatabase : RoomDatabase() {

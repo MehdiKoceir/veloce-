@@ -49,6 +49,10 @@ class VeloceRepository(private val dao: VeloceDao) {
         dao.deleteFeedItemByActivityId(activityId)
     }
 
+    suspend fun deleteFeedItem(feedItemId: Int) {
+        dao.deleteFeedItemById(feedItemId)
+    }
+
     suspend fun getActivityById(activityId: Int): SportActivity? {
         return dao.getActivityById(activityId)
     }
@@ -117,6 +121,40 @@ class VeloceRepository(private val dao: VeloceDao) {
             "HIKING" -> "🥾"
             else -> "💪"
         }
+    }
+
+    suspend fun publishActivityToFeed(activityId: Int, customTitle: String? = null): Boolean {
+        val activity = dao.getActivityById(activityId) ?: return false
+        val profile = getProfileOneShot()
+
+        // Check if already in the feed
+        val existing = dao.getFeedItemByActivityId(activityId)
+        if (existing != null) return false
+
+        val titleText = if (!customTitle.isNullOrBlank()) {
+            customTitle
+        } else {
+            activity.title.ifBlank { "${activityTypeEmoji(activity.activityType)} Activité de ${profile.name}" }
+        }
+
+        val feedItem = SocialFeedItem(
+            localActivityId = activity.id,
+            athleteName = profile.name,
+            athleteAvatar = "user",
+            activityType = activity.activityType,
+            title = titleText,
+            distanceMeters = activity.distanceMeters,
+            durationMs = activity.durationMs,
+            calories = activity.calories,
+            elevationGain = activity.elevationGain,
+            startTime = activity.startTime,
+            kudosCount = 0,
+            commentsCount = 0,
+            hasUserLiked = false,
+            commentsJson = "[]"
+        )
+        dao.insertFeedItem(feedItem)
+        return true
     }
 
     suspend fun toggleKudos(feedItemId: Int) {
